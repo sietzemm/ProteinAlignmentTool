@@ -5,6 +5,8 @@ import sys
 from tkinter import *
 from tkinter import ttk
 
+print(sys.version)
+
 root = Tk()
 root.screenName = "ProteinSequenceAligner1"
 frame = ttk.Frame(root, padding=10)
@@ -18,7 +20,10 @@ testSequence1 = "aRNDz"
 testSequence2 = "RNDCz"
 QuerySequence = StringVar()
 ReferenceSequence = StringVar()
+maxSequenceSize = 10 ## Maximal sequence length user can provide
+alignmentScore = 0
 
+## GUI 
 ttk.Label(frame, text="Protein Sequence Alignment Tool").grid(column=0, row=0, columnspan=1)
 QuerySeq_label = Label(frame, text = "Query Sequence", font=('calibre', 10, 'bold'))
 QuerySeq_input = Entry(frame, textvariable = QuerySequence, font=('calibre', 10, 'bold'))
@@ -39,13 +44,7 @@ def open_popup():
     top.title("ERROR MESSAGE")
     Label(top, text="pop up text", font=('calibre', 10, 'bold')).grid(column=0, row=0)
 
-print(sys.version)
-
-def checkInput(QuerySequence, ReferenceSequence):
-    
-    queryList = list(QuerySequence)
-    referenceList = list(ReferenceSequence)
-    maxSequenceSize = 10 ## Maximal sequence length
+def checkInput(queryList, referenceList):
 
     if len(queryList) <= maxSequenceSize and len(referenceList) <= maxSequenceSize:
         print('all good')
@@ -55,7 +54,7 @@ def checkInput(QuerySequence, ReferenceSequence):
         print('sequence size is too big, please lower sequence length to less 10 or fewer amino acids')
         ## put sequence in a list
 
-    # check if the characters of the input sequences are a valid one letter protein codes
+    # check if the characters of the input sequences are valid one letter protein codes
     
     for i, x in enumerate(queryList):
         x = x.upper()
@@ -72,6 +71,26 @@ def checkInput(QuerySequence, ReferenceSequence):
             except ValueError:
                 pass
 
+def execAlignment(querySeq, referenceSeq):
+    localScore = 0
+   
+    #global alignment
+    print('executing alignment of sequences')
+    for i, (x, y) in enumerate(zip(querySeq, referenceSeq)):
+        if x == y:
+            localScore += 1
+            print('Local match! [', x, y, '] local score now:', localScore, 'index:', i)
+        else:
+            print('No match!', x, y)
+    
+    if localScore == len(querySeq):
+        print('100% match!')
+    else:
+        print('no 100% match')
+            
+
+    #local alignment
+
 def BTNsubmitQuery():
     top = Toplevel(root)
     top.geometry("250x250")
@@ -79,15 +98,15 @@ def BTNsubmitQuery():
     
     QuerySequenceSubmit = QuerySequence.get()
     ReferenceSequenceSubmit = ReferenceSequence.get()
-    
-   # print('submitted query Sequence : ' + str(QuerySequenceSubmit))
-    #print('provided reference sequence : ' + ReferenceSequence)
 
     Label(top, text=QuerySequenceSubmit, font=('calibre', 10, 'bold')).grid(column=0, row=0)
     Label(top, text=ReferenceSequenceSubmit, font=('calibre', 10, 'bold')).grid(column=0, row=2)
 
-    checkInput(QuerySequenceSubmit, ReferenceSequenceSubmit)
-
+    queryList = list(QuerySequenceSubmit)
+    referenceList = list(ReferenceSequenceSubmit)
+   
+    checkInput(queryList, referenceList)
+    execAlignment(queryList, referenceList)
 
 Button(frame, text="Submit Alignment", command= BTNsubmitQuery).grid(column=0, row=3, columnspan=1)
 
