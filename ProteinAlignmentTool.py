@@ -1,4 +1,4 @@
-## last edited : 04-08-2024
+## last edited : 07-08-2024
 ## Sequence alignment tool for protein analysis
 
 import sys
