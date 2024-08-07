@@ -21,45 +21,52 @@ testSequence2 = "RNDCz"
 QuerySequence = StringVar()
 ReferenceSequence = StringVar()
 maxSequenceSize = 10 ## Maximal sequence length user can provide
-alignmentScore = 0
+globalAlignmentScore = StringVar()
+globalAlignmentScore.set('0')
+globalErrorMsg = StringVar()
 
 ## GUI 
-ttk.Label(frame, text="Protein Sequence Alignment Tool").grid(column=0, row=0, columnspan=1)
+ttk.Label(frame, text="Protein Sequence Alignment Tool", font=('calibre', 14)).grid(column=0, row=0, columnspan=1)
 QuerySeq_label = Label(frame, text = "Query Sequence", font=('calibre', 10, 'bold'))
-QuerySeq_input = Entry(frame, textvariable = QuerySequence, font=('calibre', 10, 'bold'))
-
 QuerySeq_label.grid(column=0, row=1, sticky=W)
+
+QuerySeq_input = Entry(frame, textvariable = QuerySequence, font=('calibre', 10, 'bold'))
 QuerySeq_input.grid(column=1, row=1)
 
 ReferenceSeq_label = Label(frame, text = "Reference Sequence", font=('calibre', 10, 'bold'))
-ReferenceSeq_input = Entry(frame, textvariable = ReferenceSequence, font=('calibre', 10, 'bold'))
-
 ReferenceSeq_label.grid(column=0, row=2, sticky=W)
+
+ReferenceSeq_input = Entry(frame, textvariable = ReferenceSequence, font=('calibre', 10, 'bold'))
 ReferenceSeq_input.grid(column=1, row=2)
 
-## Placeholder function for displaying of error messages
-def open_popup():
-    top = Toplevel(root)
-    top.geometry("250x250")
-    top.title("ERROR MESSAGE")
-    Label(top, text="pop up text", font=('calibre', 10, 'bold')).grid(column=0, row=0)
+alignmentScoreTxt_label = Label(frame, text = 'Match percentage : ', font=('calibre', 10, 'bold'))
+alignmentScoreTxt_label.grid(column=0, row=3, sticky=W)
 
-def checkInput(queryList, referenceList):
+alignmentScoreValue = Label(frame, textvariable=globalAlignmentScore, font=('calibre', 10, 'bold'))
+alignmentScoreValue.grid(column=1, row=3, sticky=W)
 
+# Does input checks prior to alignment
+def checkInput(queryList, referenceList,):
+
+    #Check if there even is a sequence provided by the user
+    if len(queryList) == 0 or len(referenceList) == 0: 
+        globalErrorMsg.set("ERRROR : Query and/or refference sequence are empty!")
+        return False
+    
+    #Checks if the provided sequence length does not exceed set sequence length
     if len(queryList) <= maxSequenceSize and len(referenceList) <= maxSequenceSize:
         print('all good')
-        ##continue with script, like normal
 
     else:
         print('sequence size is too big, please lower sequence length to less 10 or fewer amino acids')
-        ## put sequence in a list
-
-    # check if the characters of the input sequences are valid one letter protein codes
+        return False
     
+    #Checks the provided query and reference sequences contain valid one-letter amino acid codes
     for i, x in enumerate(queryList):
         x = x.upper()
         if x not in aminoAcids_lib:
             print(f'ERROR : The input sequence you provided contains a invalid amino acid on location : {i}', 'with unkown value of :', x)
+            return False
         else:
             continue
 
@@ -68,10 +75,14 @@ def checkInput(queryList, referenceList):
         if x not in aminoAcids_lib:
             try:
                 print(f'ERROR : The reference sequence you provided contains a invalid amino acid on location : {i}', 'with unkown value of :', x)
+                return False
             except ValueError:
                 pass
 
+    return True
+
 def execAlignment(querySeq, referenceSeq):
+    print('inside execAlignment')
     localScore = 0
    
     #global alignment
@@ -83,32 +94,36 @@ def execAlignment(querySeq, referenceSeq):
         else:
             print('No match!', x, y)
     
-    if localScore == len(querySeq):
-        print('100% match!')
-    else:
-        print('no 100% match')
-            
-
-    #local alignment
+    match_percentage = (localScore / len(querySeq)) * 100
+    globalAlignmentScore.set(f'{match_percentage:.2f}')
+    print(globalAlignmentScore.get())
+    root.update_idletasks()
 
 def BTNsubmitQuery():
+    errorMSG = StringVar()
     top = Toplevel(root)
-    top.geometry("250x250")
+    top.geometry("750x250")
     top.title("INPUT PROVIDED")
     
     QuerySequenceSubmit = QuerySequence.get()
     ReferenceSequenceSubmit = ReferenceSequence.get()
 
-    Label(top, text=QuerySequenceSubmit, font=('calibre', 10, 'bold')).grid(column=0, row=0)
-    Label(top, text=ReferenceSequenceSubmit, font=('calibre', 10, 'bold')).grid(column=0, row=2)
-
     queryList = list(QuerySequenceSubmit)
     referenceList = list(ReferenceSequenceSubmit)
    
-    checkInput(queryList, referenceList)
-    execAlignment(queryList, referenceList)
+    if checkInput(queryList, referenceList) == True:
+        execAlignment(queryList, referenceList)
+        Label(top, text=QuerySequenceSubmit, font=('calibre', 10, 'bold')).grid(column=0, row=0)
+        Label(top, text='||||', font=('calibre', 10, 'bold')).grid(column=0, row=1)
+        Label(top, text=ReferenceSequenceSubmit, font=('calibre', 10, 'bold')).grid(column=0, row=3)
+        alignmentScoreValue = Label(frame, text = globalAlignmentScore.get(), font=('calibre', 10, 'bold'))
+      
+    else : 
+         Label(top, text=globalErrorMsg.get(), font=('calibre', 10, 'bold'), fg='red').grid(column=0, row=0, columnspan=2, padx=10, sticky=W)
 
-Button(frame, text="Submit Alignment", command= BTNsubmitQuery).grid(column=0, row=3, columnspan=1)
+
+
+Button(frame, text="Submit Alignment", command= BTNsubmitQuery).grid(column=0, row=4, sticky=W)
 
 root.mainloop()
 
@@ -132,3 +147,11 @@ root.mainloop()
 # Tryptophan = W
 # Tyrosine = Y
 # Valine = V
+
+# Functionalities to add 
+# Needleman-Wunsch alignment algorithm / BLOSUM62
+# gap / indel identification
+# mismatch
+# multiple sequence alignment
+# secondary protein structure prediction
+# Make mismatches appear red in the output window
