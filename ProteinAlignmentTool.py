@@ -62,7 +62,7 @@ def checkInput(queryList, referenceList,):
         print('all good')
 
     else:
-        print(f'sequence size is too big, please lower sequence length to less {maxSequenceSize} or fewer amino acids')
+        # print(f'sequence size is too big, please lower sequence length to less {maxSequenceSize} or fewer amino acids')
         globalErrorMsg.set(f"ERRROR : query length exceeds maximum query length : {maxSequenceSize}")
         return False
     
@@ -71,7 +71,7 @@ def checkInput(queryList, referenceList,):
         x = x.upper()
         if x not in aminoAcids_lib:
             globalErrorMsg.set('invalid amino acid on location : '+str(i+1)+' with unkown value of : '+str(x))
-            print(f'ERROR : The input sequence you provided contains a invalid amino acid on location : {i}', 'with unkown value of :', x)
+            # print(f'ERROR : The input sequence you provided contains a invalid amino acid on location : {i}', 'with unkown value of :', x)
             return False
         else:
             continue
@@ -81,17 +81,78 @@ def checkInput(queryList, referenceList,):
         if x not in aminoAcids_lib:
             try:
                 globalErrorMsg.set('invalid amino acid on location : '+str(i+1)+' with unkown value of : '+str(x))
-                print(f'ERROR : The reference sequence you provided contains a invalid amino acid on location : {i}', 'with unkown value of :', x)
+                # print(f'ERROR : The reference sequence you provided contains a invalid amino acid on location : {i}', 'with unkown value of :', x)
                 return False
             except ValueError:
                 pass
 
     return True
 
+def needlemanWunschAlg(querySeq, referenceSeq):
+    matchScore = 1
+    mismatchScore = -1
+    gapScore = -2
+
+    lenQuery = len(querySeq)
+    lenRef = len(referenceSeq)
+
+    # Initialize the scoring matrix with zeros
+    scoreMatrix = [[0 for j in range(lenRef + 1)] for i in range(lenQuery + 1)]
+
+    # Initialize the first row and column of the matrix
+    for i in range(lenQuery + 1):
+        scoreMatrix[i][0] = i * gapScore
+    for j in range(lenRef + 1):
+        scoreMatrix[0][j] = j * gapScore
+
+    # Fill the scoring matrix
+    for i in range(1, lenQuery + 1):
+        for j in range(1, lenRef + 1):
+            match = scoreMatrix[i - 1][j - 1] + (matchScore if querySeq[i - 1] == referenceSeq[j - 1] else mismatchScore)
+            delete = scoreMatrix[i - 1][j] + gapScore
+            insert = scoreMatrix[i][j - 1] + gapScore
+            scoreMatrix[i][j] = max(match, delete, insert)
+
+    # Backtrack to find the optimal alignment
+    align1 = ""
+    align2 = ""
+    i = lenQuery
+    j = lenRef
+
+    while i > 0 and j > 0:
+        score = scoreMatrix[i][j]
+        scoreDiag = scoreMatrix[i - 1][j - 1]
+        scoreUp = scoreMatrix[i][j - 1]
+        scoreLeft = scoreMatrix[i - 1][j]
+
+        if score == scoreDiag + (matchScore if querySeq[i - 1] == referenceSeq[j - 1] else mismatchScore):
+            align1 = querySeq[i - 1] + align1
+            align2 = referenceSeq[j - 1] + align2
+            i -= 1
+            j -= 1
+        elif score == scoreLeft + gapScore:
+            align1 = querySeq[i - 1] + align1
+            align2 = "-" + align2
+            i -= 1
+        elif score == scoreUp + gapScore:
+            align1 = "-" + align1
+            align2 = referenceSeq[j - 1] + align2
+            j -= 1
+
+    while i > 0:
+        align1 = querySeq[i - 1] + align1
+        align2 = "-" + align2
+        i -= 1
+
+    while j > 0:
+        align1 = "-" + align1
+        align2 = referenceSeq[j - 1] + align2
+        j -= 1
+
+    return align1, align2
+
 def execAlignment(querySeq, referenceSeq):
-    
-    print('inside execAlignment')
-    localScore = 0
+    localMatchScore = 0
    
    # Convert sequences to uppercase
     querySeq = [x.upper() for x in querySeq]
@@ -102,22 +163,25 @@ def execAlignment(querySeq, referenceSeq):
     coloredReferenceSeq = []
 
     #global alignment
-    print('executing alignment of sequences')
+    # print('executing alignment of sequences')
     for i, (x, y) in enumerate(zip(querySeq, referenceSeq)):
 
         if x == y:
-            localScore += 1
+            localMatchScore += 1
             coloredQuerySeq.append((x, 'green'))
             coloredReferenceSeq.append((y, 'green'))
-            print('Local match! [', x, y, '] local score now:', localScore, 'index:', i)
+            # print('Local match! [', x, y, '] local score now:', localMatchScore, 'index:', i)
         else:
             foundMismatches.append((i,(x,y)))
             coloredQuerySeq.append((x, 'red'))
             coloredReferenceSeq.append((y, 'red'))
-            print('No match!', x, y)
+            # print('No match!', x, y)
             #change color to red
     
-    match_percentage = (localScore / len(querySeq)) * 100
+
+    globalAlignment = needlemanWunschAlg(querySeq, referenceSeq)
+    print(globalAlignment)
+    match_percentage = (localMatchScore / len(querySeq)) * 100
     globalAlignmentScore.set(f'{match_percentage:.2f}')
     print(globalAlignmentScore.get())
     root.update_idletasks()
@@ -135,14 +199,31 @@ def errorMsgPopUp():
 def alignmentResultPopUp(alignmentresults):
 
     top = Toplevel(root)
-    top.geometry("750x250")
     top.title("AlIGNMENT RESULT")
-    Label(top, text='Alignment result', font=('calibre', 14, 'bold')).grid(column=0, row=0, padx=5, pady=5)
 
-    #display important findings
-    # Display mismatches
-    Label(top, text="Mismatches: ", font=('calibre', 10, 'bold')).grid(column=0, row=1, sticky=W, padx=5)
-    Label(top, text=str(len(foundMismatches)), font=('calibre', 10, 'bold')).grid(column=1, row=1)
+    # Get the position and size of the main window
+    main_window_x = root.winfo_x()
+    main_window_y = root.winfo_y()
+    main_window_width = root.winfo_width()
+    main_window_height = root.winfo_height()
+
+    #Set the geometry of the pop up window
+    top.geometry(f"{750}x{200}+{main_window_x}+{(main_window_y+main_window_height)+35}")
+
+    # Frame to hold the labels
+    label_frame = Frame(top)
+    label_frame.grid(column=0, row=0, sticky=W, padx=5, pady=5)
+
+    # Frame to hold the sequences
+    sequence_frame =Frame(top)
+    sequence_frame.grid(column=0, row=1, padx=5, pady=5)
+
+    # Display alignment result text label
+    Label(label_frame, text='Alignment result', font=('calibre', 14, 'bold')).grid(column=0, row=0, padx=5, pady=5, sticky=W)
+
+    # Display mismatches text label
+    Label(label_frame, text="Mismatches : ", font=('calibre', 10, 'bold')).grid(column=0, row=1, sticky=W, padx=5)
+    Label(label_frame, text=str(len(foundMismatches)), font=('calibre', 10, 'bold')).grid(column=1, row=1, sticky=W)
     
     # Create Text widgets for displaying sequences
     queryText = Text(top, wrap=NONE, height=1, width=75)
@@ -165,25 +246,15 @@ def alignmentResultPopUp(alignmentresults):
     for char, color in alignmentresults[1]:
         referenceText.insert(END, char, color)
 
-    # Label(top, text="gaps : ",font=('calibre', 10, 'bold')).grid(column=2, row=1)
-    # Label(top, text="0 : ",font=('calibre', 10, 'bold')).grid(column=3, row=1)
-    
-    # Label(top, text="dels : ",font=('calibre', 10, 'bold')).grid(column=4, row=1)
-    # Label(top, text="0 : ",font=('calibre', 10, 'bold')).grid(column=5, row=1)
-    
-    # Label(top, text=alignmentresults[0], font=('calibre', 10, 'bold')).grid(column=0, row=2)
-    # Label(top, text='||||', font=('calibre', 10, 'bold')).grid(column=0, row=3)
-    # Label(top, text=alignmentresults[1], font=('calibre', 10, 'bold')).grid(column=0, row=4)
-    
-     # Make Text widgets read-only
     queryText.config(state=DISABLED)
     referenceText.config(state=DISABLED)
     
-    Button(top, text="Close", command=top.destroy).grid(column=0, row=4, pady=10, sticky=W)
+    Button(top, text="Close", command=top.destroy).grid(column=0, row=4, pady=10, sticky=W, padx=5)
     Button(top, text="Export", command=top.destroy).grid(column=1, row=4, pady=10)
+
 def BTNsubmitQuery():
     
-    # on button click, get user input data    
+    # On button click, get user input data    
     QuerySequenceSubmit = QuerySequence.get()
     ReferenceSequenceSubmit = ReferenceSequence.get()
 
@@ -191,13 +262,19 @@ def BTNsubmitQuery():
     queryList = list(QuerySequenceSubmit)
     referenceList = list(ReferenceSequenceSubmit)
    
-    # user input can now be checked for mistakes
+    # Check user input for mistakes
     if checkInput(queryList, referenceList) == True:
         
-        alignmentResultPopUp(execAlignment(queryList, referenceList))
-        alignmentScoreValue = Label(frame, text = globalAlignmentScore.get(), font=('calibre', 10, 'bold'))
+        #Clear the list before execution
         foundMismatches.clear()
+        alignmentResultPopUp(execAlignment(queryList, referenceList))
+        
+        #update the alignment score label
+        alignmentScoreValue = Label(frame, text = globalAlignmentScore.get(), font=('calibre', 10, 'bold'))
+        
+        #Update the GUI
         root.update_idletasks()
+
     else : # there must be a error, show error pop up window
          errorMsgPopUp()
 
